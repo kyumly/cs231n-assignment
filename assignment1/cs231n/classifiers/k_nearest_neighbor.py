@@ -64,9 +64,14 @@ class KNearestNeighbor(object):
           is the Euclidean distance between the ith test point and the jth training
           point.
         """
+        #test 데이터의 갯수
         num_test = X.shape[0]
+
+        #train 데이터의 갯수
         num_train = self.X_train.shape[0]
+
         dists = np.zeros((num_test, num_train))
+        print(dists.shape)
         for i in range(num_test):
             for j in range(num_train):
                 #####################################################################
@@ -76,8 +81,9 @@ class KNearestNeighbor(object):
                 # not use a loop over dimension, nor use np.linalg.norm().          #
                 #####################################################################
                 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-                pass
+                distinct = X[i] - self.X_train[j]
+                distinct = np.sqrt(np.sum(np.power(distinct, 2)))
+                dists[i][j] = distinct
 
                 # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
@@ -100,9 +106,9 @@ class KNearestNeighbor(object):
             # Do not use np.linalg.norm().                                        #
             #######################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+            data = np.power(X[i] - self.X_train,2 ).sum(axis=1)
 
-            pass
-
+            dists[i, :] = np.sqrt(data)
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
 
@@ -131,7 +137,12 @@ class KNearestNeighbor(object):
         #########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+
+        test_sum = np.sum(np.power(X,2), axis=1).reshape(-1 ,1)
+        train_sum = np.sum(np.power(self.X_train, 2), axis=1)
+        testTrain = -2 * (np.dot(X, self.X_train.T))
+
+        dists = np.sqrt(test_sum + train_sum + testTrain)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
@@ -163,8 +174,18 @@ class KNearestNeighbor(object):
             # Hint: Look up the function numpy.argsort.                             #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+            #차이가 작은거 가져오기
+            """
+            a = np.array([3,1,10, 2, 100])
+            
+            #인덱스를 반환한다.
+            print(a.argsort())
+            
+            print(a[a.argsort()])
+            """
+            label = np.argsort(dists[i])
+            closest_y = self.y_train[label[:k]]
 
-            pass
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
             #########################################################################
@@ -176,8 +197,6 @@ class KNearestNeighbor(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
-
-            # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+            y_pred[i] = np.bincount(closest_y).argmax()
 
         return y_pred
