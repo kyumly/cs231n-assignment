@@ -11,21 +11,33 @@ import numpy as np
 
 from cs231n import optim
 
-
+#모두 해석하기
 class Solver(object):
     """
     A Solver encapsulates all the logic necessary for training classification
     models. The Solver performs stochastic gradient descent using different
     update rules defined in optim.py.
+    해석 :
+    Solver는 분류 모델에 훈련하는데 필요한 모든 로직을 캡슐화 했다. Solver SGD 실행한다. 다른 방법으로 사용하기 위해서는 Opim.py 사용하기
 
     The solver accepts both training and validataion data and labels so it can
     periodically check classification accuracy on both training and validation
     data to watch out for overfitting.
 
+    해석:
+    Solver train, validation, labels 받아야한다.
+    즉 그것을 가지고 cliassfication training and validaion 2개를 정확도를 측정해 관찰해 overfitting을 받아야한다.
+
+
     To train a model, you will first construct a Solver instance, passing the
     model, dataset, and various options (learning rate, batch size, etc) to the
     constructor. You will then call the train() method to run the optimization
     procedure and train the model.
+
+    해석:
+    모델을 훈련하기 위해서는 너는 첫번째로 Solver 객체의 구조, forward, dataset, 다양한 파리미터를 생성자로 받야아한다.
+    그런 다음 train 메소드를 호출하여 최적화를 진행하고 모델을 교육한다.
+
 
     After the train() method returns, model.params will contain the parameters
     that performed best on the validation set over the course of training.
@@ -33,6 +45,11 @@ class Solver(object):
     of all losses encountered during training and the instance variables
     solver.train_acc_history and solver.val_acc_history will be lists of the
     accuracies of the model on the training and validation set at each epoch.
+
+    해석:
+    train 한후 returns는 model.params 가장 좋은 validation set train 한 파리미터를 가지고 있을것이다.
+    추가적으로 solver 안에는 전체 loss_hisory training 하는 동안에 진행된 loss 그리고 그 객체는 slover 입니다.
+    train_acc_history 그리고 solver.val_acc_history 훈련된 모델의 정확도들을 설정된 훈련 및 검증에 대한 리스트화 할것이다.
 
     Example usage might look something like this:
 
@@ -54,14 +71,23 @@ class Solver(object):
     solver.train()
 
 
+
     A Solver works on a model object that must conform to the following API:
+    해석:
+    Solver API 사용 로직입니다.
 
     - model.params must be a dictionary mapping string parameter names to numpy
       arrays containing parameter values.
+    해석 :
+    model.params 딕셔너리 형태로 맵핑할 것이다. 맵핑은 문자열 파리미터를 가지고 value는 numpy arrays 파리미터들을 가지고 있다.
+    ex) "w1" : np.array()
+
 
     - model.loss(X, y) must be a function that computes training-time loss and
       gradients, and test-time classification scores, with the following inputs
       and outputs:
+    해석
+    model.loss는 training-time, gradients, test-time 분류 점수 계산하는 함수와 inputs, outpus 함수를 있어야한다.
 
       Inputs:
       - X: Array giving a minibatch of input data of shape (N, d_1, ..., d_k)
@@ -257,6 +283,7 @@ class Solver(object):
         """
         num_train = self.X_train.shape[0]
         iterations_per_epoch = max(num_train // self.batch_size, 1)
+        #가중치 업데이트 횟수
         num_iterations = self.num_epochs * iterations_per_epoch
 
         for t in range(num_iterations):
