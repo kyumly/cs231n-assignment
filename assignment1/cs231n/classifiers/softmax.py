@@ -25,6 +25,8 @@ def softmax_loss_naive(W, X, y, reg):
     # Initialize the loss and gradient to zero.
     loss = 0.0
     dW = np.zeros_like(W)
+    num_train = X.shape[0]
+    num_classes = W.shape[1]
 
     #############################################################################
     # TODO: Compute the softmax loss and its gradient using explicit loops.     #
@@ -33,8 +35,27 @@ def softmax_loss_naive(W, X, y, reg):
     # regularization!                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    cnt = 0
+    for i in range(num_train):
+        wx = X[i].dot(W)
+        wx = wx - np.max(wx)
+        score = np.exp(wx)
+        # softmax 200 by 10
+        softmax = score / np.sum(score)
 
-    pass
+        loss += -np.log(softmax[y[i]])
+
+        for j in range(num_classes):
+            dW[:, j] += softmax[j] * X[i]
+        dW[:, y[i]] -= X[i]
+
+
+    loss /= num_train
+    dW /= num_train
+
+    loss += reg * np.sum(W * W)
+    dW += 2 * reg * W
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -50,6 +71,9 @@ def softmax_loss_vectorized(W, X, y, reg):
     # Initialize the loss and gradient to zero.
     loss = 0.0
     dW = np.zeros_like(W)
+    #  X : 500, 3072
+    #  y : 10
+    #  W : 3072, 10
 
     #############################################################################
     # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
@@ -58,8 +82,17 @@ def softmax_loss_vectorized(W, X, y, reg):
     # regularization!                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    score = np.dot(X,W)
 
-    pass
+    score -= np.max(score, axis=1).reshape(-1 ,1)
+    score = np.exp(score) / np.sum(np.exp(score), axis=1, keepdims=True)
+
+    loss = np.sum(-np.log(score[range(X.shape[0]), y]))
+    loss = loss / X.shape[0] + reg * np.sum(W ** 2)
+
+    score[range(X.shape[0]), y] -= 1
+    dW = X.T.dot(score)  / X.shape[0] + 2 * reg * W
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
