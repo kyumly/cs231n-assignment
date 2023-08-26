@@ -38,15 +38,28 @@ class FullyConnectedNet(object):
 
         Inputs:
         - hidden_dims: A list of integers giving the size of each hidden layer.
+        # 히든 레이아웃에 사이즈 받기
         - input_dim: An integer giving the size of the input.
+        # input 차원에 대한 값
         - num_classes: An integer giving the number of classes to classify.
+        # 클래스 정답을 받는다
+
         - dropout_keep_ratio: Scalar between 0 and 1 giving dropout strength.
             If dropout_keep_ratio=1 then the network should not use dropout at all.
+         # 0 ~ 1까지 droupout 되는 비율을 정해준다
+
         - normalization: What type of normalization the network should use. Valid values
             are "batchnorm", "layernorm", or None for no normalization (the default).
+
+        # 정규화 하는 방법
+
+
         - reg: Scalar giving L2 regularization strength.
+        #L2 req 규제
         - weight_scale: Scalar giving the standard deviation for random
             initialization of the weights.
+        # weight 값 정햊주기
+
         - dtype: A numpy datatype object; all computations will be performed using
             this datatype. float32 is faster but less accurate, so you should use
             float64 for numeric gradient checking.
@@ -74,7 +87,16 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # 파라미터 값 정리하기
+        hidden_dims.insert(0, input_dim)
+        hidden_dims.append(num_classes)
+
+        for index in range(1,len(hidden_dims)):
+            self.params[f"W{index}"] = np.random.randn(hidden_dims[index -1], hidden_dims[index]) * weight_scale
+            self.params[f"b{index}"] = np.zeros((1, hidden_dims[index]))
+
+            # if index != (self.num_layers -1) :
+            #     self.params[f"gamma{index}"] = np.zeros()
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -148,7 +170,23 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        cache_list = []
+        input_list = [0, X]
+
+        for index in range(1, self.num_layers +1):
+
+            fc, cache = affine_relu_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
+
+            if index == self.num_layers:
+                fc, cache = affine_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
+            input_list.append(fc)
+            cache_list.append(cache)
+
+        # fc_1, cache_1 = affine_relu_forward(X, self.params['W1'], self.params['b1'])
+        # fc_2, cache_2 = affine_relu_forward(fc_1, self.params['W2'], self.params['b2'])
+        # fc_3, cache_3 = affine_forward(fc_2, self.params['W3'], self.params['b3'])
+        scores = input_list[len(input_list) - 1]
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -175,11 +213,21 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        loss, dz = softmax_loss(scores, y)
+        weight = 0
+
+        for index in range(self.num_layers, 0, -1):
+            weight = (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
+            if index == self.num_layers:
+                dz, grads[f'W{index}'], grads[f'b{index}'] = affine_backward(dz, cache_list[index -1])
+            else:
+                dz, grads[f'W{index}'], grads[f'b{index}'] = affine_relu_backward(dz, cache_list[index -1])
+            grads[f'W{index}'] += self.reg * self.params[f'W{index}']
+
+        loss += 0.5 * self.reg * weight
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
-
         return loss, grads
