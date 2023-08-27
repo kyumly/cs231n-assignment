@@ -35,9 +35,17 @@ def compute_saliency_maps(X, y, model):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     scores = model(X)
-    print("인덱스 : ", y)
+    #print("끝 : ", next(model.parameters()).grad) # 1.5192,  1.1279,  0.8409],
+
+
     loss = scores[range(len(y)), y].sum() / len(y)
-    print(loss)
+    loss.backward()
+    #최댓값과, _ : 인덱스
+    saliency, _ = X.grad.abs().max(axis=1)
+
+
+
+    #print("시작 : ", next(model.parameters()).grad) #[[ 2.2789,  1.6919,  1.2614],
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -79,7 +87,20 @@ def make_fooling_image(X, target_y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+
+
+    while True:
+        scores = model(X_fooling)
+        target = scores.argmax(axis=1)
+        if target == target_y:
+            break
+        loss = scores[0, target_y]
+        loss.backward()
+
+        X_fooling.data += learning_rate * X_fooling.grad
+
+
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -97,7 +118,16 @@ def class_visualization_update_step(img, model, target_y, l2_reg, learning_rate)
     ########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+
+    pred_y = model(img)
+
+    # Loss is just the L2 regularized target score
+    loss = pred_y[0, target_y] - l2_reg * img.square().sum()
+    loss.backward()
+
+    # Perform normalized gradient ascent and zero out grad
+    img.data += learning_rate * img.grad / img.grad.norm()
+    img.grad.zero_()
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ########################################################################
