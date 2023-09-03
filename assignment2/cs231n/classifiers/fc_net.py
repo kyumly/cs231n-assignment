@@ -90,14 +90,13 @@ class FullyConnectedNet(object):
         # 파라미터 값 정리하기
         hidden_dims.insert(0, input_dim)
         hidden_dims.append(num_classes)
-
         for index in range(1,len(hidden_dims)):
             self.params[f"W{index}"] = np.random.randn(hidden_dims[index -1], hidden_dims[index]) * weight_scale
             self.params[f"b{index}"] = np.zeros((1, hidden_dims[index]))
 
-            # if index != (self.num_layers -1) :
-            #     self.params[f"gamma{index}"] = np.zeros()
-
+            if self.normalization and index != (self.num_layers) :
+                self.params[f"gamma{index}"] = np.ones(hidden_dims[index])
+                self.params[f"beta{index}"] = np.zeros(hidden_dims[index])
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -129,7 +128,7 @@ class FullyConnectedNet(object):
 
     def loss(self, X, y=None):
         """Compute loss and gradient for the fully connected net.
-        
+
         Inputs:
         - X: Array of input data of shape (N, d_1, ..., d_k)
         - y: Array of labels, of shape (N,). y[i] gives the label for X[i].
@@ -174,8 +173,14 @@ class FullyConnectedNet(object):
         input_list = [0, X]
 
         for index in range(1, self.num_layers +1):
+            keys = [f'W{index}', f'b{index}', f'gamma{index}', f'beta{index}']
+            w, b, gamma, beta = (self.params.get(k, None) for k in keys)  # get param vals
+            bn = self.bn_params[index -1] if gamma is not None else None
 
-            fc, cache = affine_relu_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
+
+            fc, cache = affine_batchnoral_relu_forward(input_list[index], w, b, gamma, beta, bn)
+
+            #fc, cache = affine_relu_forward(input_list[index], w, b)
 
             if index == self.num_layers:
                 fc, cache = affine_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
@@ -215,13 +220,16 @@ class FullyConnectedNet(object):
 
         loss, dz = softmax_loss(scores, y)
         weight = 0
-
         for index in range(self.num_layers, 0, -1):
             weight = (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
             if index == self.num_layers:
                 dz, grads[f'W{index}'], grads[f'b{index}'] = affine_backward(dz, cache_list[index -1])
             else:
-                dz, grads[f'W{index}'], grads[f'b{index}'] = affine_relu_backward(dz, cache_list[index -1])
+                if self.normalization == 'batchnorm':
+                    dz, grads[f'W{index}'], grads[f'b{index}'], grads[f'gamma{index}'], grads[
+                        f'beta{index}'] = affine_batchnoral_relu_backward(dz, cache_list[index - 1])
+                else:
+                    dz, grads[f'W{index}'], grads[f'b{index}'] = affine_relu_backward(dz, cache_list[index - 1])
             grads[f'W{index}'] += self.reg * self.params[f'W{index}']
 
         loss += 0.5 * self.reg * weight
