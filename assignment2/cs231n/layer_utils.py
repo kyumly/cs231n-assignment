@@ -3,7 +3,7 @@ from .fast_layers import *
 
 
 
-def affine_batchnoral_relu_forward(x, w, b, gamma, beta, bn):
+def affine_batchnoral_relu_forward(x, w, b, gamma, beta, bn, bn_type=None):
     """Convenience layer that performs an affine transform followed by a ReLU.
 
     Inputs:
@@ -14,32 +14,41 @@ def affine_batchnoral_relu_forward(x, w, b, gamma, beta, bn):
     - out: Output from the ReLU
     - cache: Object to give to the backward pass
     """
-    # print(bn)
-    # print(x.shape)
-    # print(w.shape)
-    # print(b.shape)
-
     a, fc_cache = affine_forward(x, w, b)
 
-    if bn is None:
-        out, relu_cache = relu_forward(a)
-        cache = (fc_cache, relu_cache)
-    else:
+    if bn_type == 'batchnorm':
         batch_out, batch_cache = batchnorm_forward(a, gamma, beta, bn_param=bn)
         out, relu_cache = relu_forward(batch_out)
         cache = (fc_cache, batch_cache, relu_cache)
+    elif bn_type == 'layernorm':
+        batch_out, batch_cache = layernorm_forward(a, gamma, beta, ln_param=bn)
+        out, relu_cache = relu_forward(batch_out)
+        cache = (fc_cache, batch_cache, relu_cache)
+    else:
+        out, relu_cache = relu_forward(a)
+        cache = (fc_cache, relu_cache)
+
+    # else:
+    #     batch_out, batch_cache = batchnorm_forward(a, gamma, beta, bn_param=bn)
+    #     out, relu_cache = relu_forward(batch_out)
+    #     cache = (fc_cache, batch_cache, relu_cache)
 
     return out, cache
 
-def affine_batchnoral_relu_backward(dout, cache):
+def affine_batchnoral_relu_backward(dout, cache, bn_type):
     """Backward pass for the affine-relu convenience layer.
     """
     fc_cache, batchnorm_cache, relu_cache,  = cache
-
-
     da = relu_backward(dout, relu_cache)
-    dx, dgamma, dbeta = batchnorm_backward_alt(da, batchnorm_cache)
+    dgamma , dbeta = None, None
+
+    if bn_type =='batchnorm':
+        dx, dgamma, dbeta = batchnorm_backward_alt(da, batchnorm_cache)
+    elif bn_type == 'layernorm':
+        dx, dgamma, dbeta = layernorm_backward(da, batchnorm_cache)
+
     dx, dw, db = affine_backward(dx, fc_cache)
+
     return dx, dw, db, dgamma , dbeta
 
 def affine_relu_forward(x, w, b):

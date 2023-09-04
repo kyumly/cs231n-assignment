@@ -386,9 +386,8 @@ def batchnorm_backward_alt(dout, cache):
 
     _, _, _, std, gamma, x_hat, shape, axis = cache  # expand cache
 
-
-    dbeta = dout.sum(axis=0)
-    dgamma = (dout * x_hat).sum(axis=0)
+    dbeta = dout.sum(axis=axis)
+    dgamma = (dout * x_hat).sum(axis=axis)
 
     dx_hat = dout * gamma
     N = len(dout)
@@ -441,11 +440,12 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-    bn_param = {"mode": "train", "axis": 1, **ln_param} # same as batchnorm in train mode + over which axis to sum for grad
-    [gamma, beta] = np.atleast_2d(gamma, beta)          # assure 2D to perform transpose
+    bn_param = {"mode": "train", "axis": 1,
+                **ln_param}  # same as batchnorm in train mode + over which axis to sum for grad
+    [gamma, beta] = np.atleast_2d(gamma, beta)  # assure 2D to perform transpose
 
-    out, cache = batchnorm_forward(x.T, gamma.T, beta.T, bn_param) # same as batchnorm
-    out = out.T
+    out, cache = batchnorm_forward(x.T, gamma.T, beta.T, bn_param)  # same as batchnorm
+    out = out.T  # transpose back
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

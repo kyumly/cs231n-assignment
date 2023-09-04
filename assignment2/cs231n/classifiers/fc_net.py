@@ -1,6 +1,7 @@
 from builtins import range
 from builtins import object
 import numpy as np
+import copy
 
 from ..layers import *
 from ..layer_utils import *
@@ -88,15 +89,20 @@ class FullyConnectedNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # 파라미터 값 정리하기
-        hidden_dims.insert(0, input_dim)
-        hidden_dims.append(num_classes)
-        for index in range(1,len(hidden_dims)):
-            self.params[f"W{index}"] = np.random.randn(hidden_dims[index -1], hidden_dims[index]) * weight_scale
-            self.params[f"b{index}"] = np.zeros((1, hidden_dims[index]))
+
+        # for l, (i, j) in enumerate(zip([input_dim, *hidden_dims], [*hidden_dims, num_classes]))
+        hidden_dim_layer = copy.deepcopy(hidden_dims)
+
+        hidden_dim_layer.insert(0, input_dim)
+        hidden_dim_layer.append(num_classes)
+        for index in range(1,len(hidden_dim_layer)):
+            self.params[f"W{index}"] = np.random.randn(hidden_dim_layer[index -1], hidden_dim_layer[index]) * weight_scale
+            self.params[f"b{index}"] = np.zeros((1, hidden_dim_layer[index]))
+
 
             if self.normalization and index != (self.num_layers) :
-                self.params[f"gamma{index}"] = np.ones(hidden_dims[index])
-                self.params[f"beta{index}"] = np.zeros(hidden_dims[index])
+                self.params[f"gamma{index}"] = np.ones(hidden_dim_layer[index])
+                self.params[f"beta{index}"] = np.zeros(hidden_dim_layer[index])
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -178,12 +184,14 @@ class FullyConnectedNet(object):
             bn = self.bn_params[index -1] if gamma is not None else None
 
 
-            fc, cache = affine_batchnoral_relu_forward(input_list[index], w, b, gamma, beta, bn)
 
             #fc, cache = affine_relu_forward(input_list[index], w, b)
 
             if index == self.num_layers:
                 fc, cache = affine_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
+            else:
+                fc, cache = affine_batchnoral_relu_forward(input_list[index], w, b, gamma, beta, bn,
+                                                           bn_type=self.normalization)
             input_list.append(fc)
             cache_list.append(cache)
 
@@ -191,7 +199,6 @@ class FullyConnectedNet(object):
         # fc_2, cache_2 = affine_relu_forward(fc_1, self.params['W2'], self.params['b2'])
         # fc_3, cache_3 = affine_forward(fc_2, self.params['W3'], self.params['b3'])
         scores = input_list[len(input_list) - 1]
-
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -220,14 +227,15 @@ class FullyConnectedNet(object):
 
         loss, dz = softmax_loss(scores, y)
         weight = 0
+
         for index in range(self.num_layers, 0, -1):
             weight = (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
             if index == self.num_layers:
                 dz, grads[f'W{index}'], grads[f'b{index}'] = affine_backward(dz, cache_list[index -1])
             else:
-                if self.normalization == 'batchnorm':
+                if self.normalization == 'batchnorm' or self.normalization =='layernorm':
                     dz, grads[f'W{index}'], grads[f'b{index}'], grads[f'gamma{index}'], grads[
-                        f'beta{index}'] = affine_batchnoral_relu_backward(dz, cache_list[index - 1])
+                        f'beta{index}'] = affine_batchnoral_relu_backward(dz, cache_list[index - 1], bn_type=self.normalization)
                 else:
                     dz, grads[f'W{index}'], grads[f'b{index}'] = affine_relu_backward(dz, cache_list[index - 1])
             grads[f'W{index}'] += self.reg * self.params[f'W{index}']
