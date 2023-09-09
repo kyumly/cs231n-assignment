@@ -129,9 +129,6 @@ def relu_backward(dout, cache):
 
     dx = dout * x
 
-    # dv = (x > 0)
-    # dx = dout * dv
-
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #

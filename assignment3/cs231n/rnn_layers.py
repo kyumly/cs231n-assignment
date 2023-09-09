@@ -72,8 +72,21 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     # and cache variables respectively.                                          #
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    # X 입력 데이터
+    # print("x데이터 : ", x.shape)
+    
+    # print("prev_h : " , prev_h.shape)
+    
+    # print("Wx : ", Wx.shape)
+    # print("Wh : ", Wh.shape)
+    # print("B : ", b.shape)
+    
+    # x_score = x @ Wx
+    # h_score = prev_h @ 
+    h_raw = x.dot(Wx) + prev_h.dot(Wh) + b
+    next_h = np.tanh(h_raw)
+    cache = (next_h, x, prev_h, Wx, Wh)
 
-    pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -104,8 +117,17 @@ def rnn_step_backward(dnext_h, cache):
     # of the output value from tanh.                                             #
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    next_h, x, prev_h, Wx, Wh = cache
 
-    pass
+    dout = (1- np.square(next_h)) * dnext_h
+    
+    dWx = x.T @ dout
+    dWh = prev_h.T @ dout
+
+    dprev_h = dout @ Wh.T
+    dx = dout @ Wx.T
+
+    db = np.sum(dout, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -140,13 +162,24 @@ def rnn_forward(x, h0, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    cache = []
+    h = [h0]
 
+    time_step = x.shape[1]
+    h_stack = np.zeros((x.shape[0], time_step, b.shape[0]))
+    for t in range(time_step):
+        next_h, new_cache = rnn_step_forward(x[:, t], h[t], Wx, Wh, b)
+        h_stack[:, t] = next_h
+        h.append(next_h)
+        cache.append(new_cache)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
+    h = np.stack(h[1:], axis=1)
+    
     return h, cache
+
 
 
 def rnn_backward(dh, cache):
@@ -175,7 +208,22 @@ def rnn_backward(dh, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    (N, T, H), (D, _) = dh.shape, cache[0][3].shape
+    dx = np.empty((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, H))
+    dWh = np.zeros((H, H))
+    db = np.zeros(H)
+
+
+    for t in range(T-1, -1, -1):
+        dx_t, dh0, dWx_t, dWh_t, db_t = rnn_step_backward(dh[:, t] + dh0, cache[t])
+        
+        dx[:, t] = dx_t
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -206,9 +254,10 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)***** 
 
-    pass
+    out = W[x, :]
+    cache = x, W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -242,7 +291,12 @@ def word_embedding_backward(dout, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, W = cache
+    dW = np.zeros_like(W)
+    
+    # Ref: https://docs.scipy.org/doc/numpy-1.14.0/reference/generated/numpy.ufunc.at.html
+    np.add.at(dW, x, dout)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -447,7 +501,9 @@ def temporal_affine_backward(dout, cache):
     M = b.shape[0]
 
     dx = dout.reshape(N * T, M).dot(w.T).reshape(N, T, D)
-    dw = dout.reshape(N * T, M).T.dot(x.reshape(N * T, D)).T
+    dw = (x.reshape(N * T, D).T @ dout.reshape(N * T, M))
+
+    #dw = dout.reshape(N * T, M).T.dot(x.reshape(N * T, D)).T
     db = dout.sum(axis=(0, 1))
 
     return dx, dw, db
@@ -487,9 +543,12 @@ def temporal_softmax_loss(x, y, mask, verbose=False):
     probs = np.exp(x_flat - np.max(x_flat, axis=1, keepdims=True))
     probs /= np.sum(probs, axis=1, keepdims=True)
     loss = -np.sum(mask_flat * np.log(probs[np.arange(N * T), y_flat])) / N
+    
     dx_flat = probs.copy()
     dx_flat[np.arange(N * T), y_flat] -= 1
+    
     dx_flat /= N
+    
     dx_flat *= mask_flat[:, None]
 
     if verbose:
