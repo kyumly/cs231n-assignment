@@ -89,8 +89,6 @@ class FullyConnectedNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # 파라미터 값 정리하기
-
-        # for l, (i, j) in enumerate(zip([input_dim, *hidden_dims], [*hidden_dims, num_classes]))
         hidden_dim_layer = copy.deepcopy(hidden_dims)
 
         hidden_dim_layer.insert(0, input_dim)
@@ -182,16 +180,14 @@ class FullyConnectedNet(object):
             keys = [f'W{index}', f'b{index}', f'gamma{index}', f'beta{index}']
             w, b, gamma, beta = (self.params.get(k, None) for k in keys)  # get param vals
             bn = self.bn_params[index -1] if gamma is not None else None
-
-
-
-            #fc, cache = affine_relu_forward(input_list[index], w, b)
+            do = self.dropout_param if self.use_dropout else None
 
             if index == self.num_layers:
                 fc, cache = affine_forward(input_list[index], self.params[f'W{index}'], self.params[f'b{index}'])
             else:
-                fc, cache = affine_batchnoral_relu_forward(input_list[index], w, b, gamma, beta, bn,
-                                                           bn_type=self.normalization)
+                fc, cache = affine_normally_forward(input_list[index], w, b, gamma, beta, bn,
+                                                    bn_type=self.normalization, do=do)
+
             input_list.append(fc)
             cache_list.append(cache)
 
@@ -230,14 +226,14 @@ class FullyConnectedNet(object):
 
         for index in range(self.num_layers, 0, -1):
             weight = (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
+            do = self.dropout_param if self.use_dropout else None
             if index == self.num_layers:
                 dz, grads[f'W{index}'], grads[f'b{index}'] = affine_backward(dz, cache_list[index -1])
             else:
-                if self.normalization == 'batchnorm' or self.normalization =='layernorm':
-                    dz, grads[f'W{index}'], grads[f'b{index}'], grads[f'gamma{index}'], grads[
-                        f'beta{index}'] = affine_batchnoral_relu_backward(dz, cache_list[index - 1], bn_type=self.normalization)
-                else:
-                    dz, grads[f'W{index}'], grads[f'b{index}'] = affine_relu_backward(dz, cache_list[index - 1])
+                dz, grads[f'W{index}'], grads[f'b{index}'], gamma, beta = affine_batchnoral_relu_backward(dz, cache_list[index - 1],  bn_type=self.normalization)
+
+                if gamma is not None and beta  is not None :
+                    grads[f'gamma{index}'], grads[f'beta{index}']= gamma, beta
             grads[f'W{index}'] += self.reg * self.params[f'W{index}']
 
         loss += 0.5 * self.reg * weight

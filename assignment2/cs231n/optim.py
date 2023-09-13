@@ -157,15 +157,15 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-    keys = ['learning_rate','beta1','beta2','epsilon','m','v','t'] # keys in this order
-    lr, beta1, beta2, eps, m, v, t = (config.get(k) for k in keys) # vals in this order
+    keys = ['learning_rate','beta1','beta2','epsilon','m','v','t']
+    lr, beta1, beta2, eps, m, v, t = (config.get(k) for k in keys)
 
-    config['t'] = t = t + 1                             # iteration counter
-    config['m'] = m = beta1 * m + (1 - beta1) * dw      # gradient smoothing (Momentum)
-    mt = m / (1 - beta1**t)                             # bias correction
-    config['v'] = v = beta2 * v + (1 - beta2) * (dw**2) # gradient smoothing (RMSprop)
-    vt = v / (1 - beta2**t)                             # bias correction
-    next_w = w - lr * mt / (np.sqrt(vt) + eps)          # weight update
+    config['t'] = t = t + 1
+    config['m'] = m = beta1 * m + (1 - beta1) * dw
+    mt = m / (1 - beta1**t)
+    config['v'] = v = beta2 * v + (1 - beta2) * (dw**2)
+    vt = v / (1 - beta2**t)
+    next_w = w - lr * mt / (np.sqrt(vt) + eps)
 
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

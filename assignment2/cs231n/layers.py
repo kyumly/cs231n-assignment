@@ -526,7 +526,8 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        mask = (np.random.rand(*x.shape) < p) / p
+        out = x * mask
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -538,7 +539,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        out = x
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -567,9 +568,7 @@ def dropout_backward(dout, cache):
         # TODO: Implement training phase backward pass for inverted dropout   #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        dx = dout * mask
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
         #                          END OF YOUR CODE                           #
@@ -612,8 +611,47 @@ def conv_forward_naive(x, w, b, conv_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    print(x.shape)
+    print(w.shape)
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    padding, stride =  conv_param.get('pad', 0), conv_param.get('stride', 1)
 
+
+    width_out, height_out = (H + 2*padding - HH) / stride + 1 , (W + 2*padding - WW) / stride + 1
+
+
+    receptive_field =  int(HH * WW)
+    out_size = int(width_out * height_out)
+    train_shape = (int(N), int(C) * receptive_field, out_size)
+
+
+    w_out = w.reshape(int(F), int(C) * receptive_field)
+    train = np.ones(train_shape).reshape(int(C) * receptive_field, -1)
+
+
+    x_pad = np.pad(x, ((0,), (0,), (padding,), (padding,)), mode='constant', constant_values=0)
+    print(x_pad.shape)
+    for n in x_pad:
+        data = n.reshape(n.shape[0],-1)
+        channel, row = data.shape
+        for col in range(0, row, stride):
+            col_v = 0
+            k = []
+            for row in range(int(WW)):
+                start = row + col_v
+                k += list(range(start, start + WW))
+                if len(k) == receptive_field:
+                    break
+                col_v += 4
+
+            print("값 : ", data[:, k].shape)
+
+
+
+
+    #out = (w_out @ train) + b.reshape(-1 ,1)
+    #out = out.reshape(int(N), int(F), int(width_out), int(height_out))
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
