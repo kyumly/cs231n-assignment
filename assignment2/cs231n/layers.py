@@ -441,11 +441,12 @@ def layernorm_forward(x, gamma, beta, ln_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     bn_param = {"mode": "train", "axis": 1,
-                **ln_param}  # same as batchnorm in train mode + over which axis to sum for grad
-    [gamma, beta] = np.atleast_2d(gamma, beta)  # assure 2D to perform transpose
+                **ln_param}
 
-    out, cache = batchnorm_forward(x.T, gamma.T, beta.T, bn_param)  # same as batchnorm
-    out = out.T  # transpose back
+    print(gamma.shape)
+    [gamma, beta] = np.atleast_2d(gamma, beta)
+    out, cache = batchnorm_forward(x.T, gamma.T, beta.T, bn_param)
+    out = out.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -578,6 +579,12 @@ def dropout_backward(dout, cache):
     return dx
 
 
+def get_stride_input_data(train, N, data, stride, C, WW, HH, receptive_field):
+    for i in range(N):
+        input_data = np.lib.stride_tricks.sliding_window_view(data[i], (C, WW, HH))[:,::stride, ::stride].reshape(-1, receptive_field * C).T
+        train[i] = input_data
+
+
 def conv_forward_naive(x, w, b, conv_param):
     """A naive implementation of the forward pass for a convolutional layer.
 
@@ -610,47 +617,33 @@ def conv_forward_naive(x, w, b, conv_param):
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    print(x.shape)
-    print(w.shape)
     N, C, H, W = x.shape
     F, _, HH, WW = w.shape
     padding, stride =  conv_param.get('pad', 0), conv_param.get('stride', 1)
 
-
-    width_out, height_out = (H + 2*padding - HH) / stride + 1 , (W + 2*padding - WW) / stride + 1
-
-
+    width_out, height_out = int((H + 2*padding - HH) / stride + 1) ,int((W + 2*padding - WW) / stride + 1)
     receptive_field =  int(HH * WW)
-    out_size = int(width_out * height_out)
-    train_shape = (int(N), int(C) * receptive_field, out_size)
-
-
     w_out = w.reshape(int(F), int(C) * receptive_field)
-    train = np.ones(train_shape).reshape(int(C) * receptive_field, -1)
-
-
     x_pad = np.pad(x, ((0,), (0,), (padding,), (padding,)), mode='constant', constant_values=0)
-    print(x_pad.shape)
-    for n in x_pad:
-        data = n.reshape(n.shape[0],-1)
-        channel, row = data.shape
-        for col in range(0, row, stride):
-            col_v = 0
-            k = []
-            for row in range(int(WW)):
-                start = row + col_v
-                k += list(range(start, start + WW))
-                if len(k) == receptive_field:
-                    break
-                col_v += 4
 
-            print("값 : ", data[:, k].shape)
+    train = np.zeros((N, receptive_field * C, width_out * height_out))
+
+    get_stride_input_data(train, N, x_pad, stride, C, WW, HH, receptive_field)
+
+    out = (w_out @ train).reshape(N, F, width_out, height_out)
+
+    b = np.expand_dims(b, axis=(2, 1))
+
+    x = train
+    w = w_out
+
+    out = out + b
+
+    conv_param['filter'] = (HH, WW)
+    conv_param['IC'] = C
+    conv_param['data_pad'] = x_pad.shape
 
 
-
-
-    #out = (w_out @ train) + b.reshape(-1 ,1)
     #out = out.reshape(int(N), int(F), int(width_out), int(height_out))
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -659,6 +652,106 @@ def conv_forward_naive(x, w, b, conv_param):
     cache = (x, w, b, conv_param)
     return out, cache
 
+
+def conv_forward_naive2(x, w, b, conv_param):
+    """A naive implementation of the forward pass for a convolutional layer.
+
+    The input consists of N data points, each with C channels, height H and
+    width W. We convolve each input with F different filters, where each filter
+    spans all C channels and has height HH and width WW.
+
+    Input:
+    - x: Input data of shape (N, C, H, W)
+    - w: Filter weights of shape (F, C, HH, WW)
+    - b: Biases, of shape (F,)
+    - conv_param: A dictionary with the following keys:
+      - 'stride': The number of pixels between adjacent receptive fields in the
+        horizontal and vertical directions.
+      - 'pad': The number of pixels that will be used to zero-pad the input.
+
+    During padding, 'pad' zeros should be placed symmetrically (i.e equally on both sides)
+    along the height and width axes of the input. Be careful not to modfiy the original
+    input x directly.
+
+    Returns a tuple of:
+    - out: Output data, of shape (N, F, H', W') where H' and W' are given by
+      H' = 1 + (H + 2 * pad - HH) / stride
+      W' = 1 + (W + 2 * pad - WW) / stride
+    - cache: (x, w, b, conv_param)
+    """
+    out = None
+    ###########################################################################
+    # TODO: Implement the convolutional forward pass.                         #
+    # Hint: you can use the function np.pad for padding.                      #
+    ###########################################################################
+    pad = conv_param['pad']
+    stride = conv_param['stride']
+    N, C, H, W = x.shape
+    F, C, FH, FW = w.shape
+
+    assert (H - FH + 2 * pad) % stride == 0
+    assert (W - FW + 2 * pad) % stride == 0
+    outH = int(1 + (H - FH + 2 * pad) / stride)
+    outW = int(1 + (W - FW + 2 * pad) / stride)
+
+    # create output tensor after convolution layer
+    out = np.zeros((N, F, outH, outW))
+
+    # padding all input data
+    x_pad = np.pad(x, ((0,0), (0,0),(pad,pad),(pad,pad)), 'constant')
+    H_pad, W_pad = x_pad.shape[2], x_pad.shape[3]
+
+    # create w_row matrix
+    w_row = w.reshape(F, C*FH*FW)                            #[F x C*FH*FW]
+
+    # create x_col matrix with values that each neuron is connected to
+    x_col = np.zeros((C*FH*FW, outH*outW))                   #[C*FH*FW x H'*W']
+    for index in range(N):
+        neuron = 0
+        for i in range(0, H_pad-FH+1, stride):
+            for j in range(0, W_pad-FW+1,stride):
+                x_col[:,neuron] = x_pad[index,:,i:i+FH,j:j+FW].reshape(C*FH*FW)
+                neuron += 1
+        out[index] = (w_row.dot(x_col) + b.reshape(F,1)).reshape(F, outH, outW)
+    ###########################################################################
+    #                             END OF YOUR CODE                            #
+    ###########################################################################
+    cache = (x_pad, w, b, conv_param)
+    return out, cache
+
+
+
+def get_stride_new_data(train,dx, stide, IC, FW, FH, RW, RH):
+    """
+    다시 펼치는 작업
+    """
+    # print("값 : ", dx.shape)
+    # print("훈련 : ", train.shape)
+    # print(FW, FH)
+    # print(RW, RH)
+    # print(stide)
+
+    train = np.zeros(shape=train)
+    SH, SW = train.shape[2], train.shape[3]
+
+
+    index = 0
+    for datas in dx:
+        row = 0
+        col = 0
+        for j in datas.T:
+            new_data = j.reshape(IC, FH, FW)
+            # print(col, col+FH, row, row+FW)
+            if (row + FW) > SW:
+                col += stide
+                row = 0
+            if row > SW and col > SH:
+                break
+            train[index, :, col: col + FH, row:row + FW] += new_data
+            row += stide
+        index += 1
+    return train
+    # print("결과 : ", zero_data[0])
 
 def conv_backward_naive(dout, cache):
     """A naive implementation of the backward pass for a convolutional layer.
@@ -677,8 +770,27 @@ def conv_backward_naive(dout, cache):
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, w, b , conv_param = cache
 
-    pass
+    padding, stride, receptive_field, IC, data_pad = conv_param.get('pad', 0), conv_param.get('stride', 1), conv_param.get('filter', (1,1)), conv_param.get('IC', 1), conv_param.get('data_pad', 0)
+
+    # print(IC)
+    RN, RC, RH, RW = dout.shape
+
+    dloss = dout.reshape(RN, RC, -1)
+    x_trans = np.transpose(x, (0, 2, 1))
+    dw = (dloss @ x_trans).sum(0)
+    dw = dw.reshape(RC, IC, receptive_field[0],receptive_field[1])
+
+    db = dout.sum(axis=(0, 2,3))
+
+    dx = (w.T @ dloss)
+
+    x_pad = get_stride_new_data(data_pad, dx,  stride, IC, receptive_field[0], receptive_field[1], RW, RH)
+    train = x_pad
+
+    dx = train[:, :, padding:-padding ,padding:-padding]
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -686,6 +798,51 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     return dx, dw, db
 
+
+def conv_backward_naive2(dout, cache):
+    """A naive implementation of the backward pass for a convolutional layer.
+
+    Inputs:
+    - dout: Upstream derivatives.
+    - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
+
+    Returns a tuple of:
+    - dx: Gradient with respect to x
+    - dw: Gradient with respect to w
+    - db: Gradient with respect to b
+    """
+    dx, dw, db = None, None, None
+    ###########################################################################
+    # TODO: Implement the convolutional backward pass.                        #
+    ###########################################################################
+    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    # Helper function (warning: numpy 1.20+ is required)
+    to_fields = np.lib.stride_tricks.sliding_window_view
+
+    x_pad, w, b, conv_param = cache  # extract parameters from cache
+    print(x_pad.shape)
+    S1 = S2 = conv_param['stride']  # stride:  up = down
+    P1 = P2 = P3 = P4 = conv_param['pad']  # padding: up = right = down = left
+    F, C, HF, WF = w.shape  # filter dims
+    N, _, HO, WO = dout.shape  # output dims
+
+    dout = np.insert(dout, [*range(1, HO)] * (S1 - 1), 0, axis=2)  # "missing" rows
+    dout = np.insert(dout, [*range(1, WO)] * (S2 - 1), 0, axis=3)  # "missing" columns
+    dout_pad = np.pad(dout, ((0,), (0,), (HF - 1,), (WF - 1,)), 'constant')  # for full convolution
+
+    x_fields = to_fields(x_pad, (N, C, dout.shape[2], dout.shape[3]))  # input local regions w.r.t. dout
+    dout_fields = to_fields(dout_pad, (N, F, HF, WF))  # dout local regions w.r.t. filter
+    w_rot = np.rot90(w, 2, axes=(2, 3))  # rotated kernel (for convolution)
+    db = np.einsum('ijkl->j', dout)  # sum over
+    dw = np.einsum('ijkl,mnopiqkl->jqop', dout, x_fields)  # correlate
+    dx = np.einsum('ijkl,mnopqikl->qjop', w_rot, dout_fields)[..., P1:-P3, P2:-P4]  # convolve
+
+    # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    ###########################################################################
+    #                             END OF YOUR CODE                            #
+    ###########################################################################
+    return dx, dw, db
 
 def max_pool_forward_naive(x, pool_param):
     """A naive implementation of the forward pass for a max-pooling layer.
