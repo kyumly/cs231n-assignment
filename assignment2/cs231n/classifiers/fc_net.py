@@ -225,7 +225,7 @@ class FullyConnectedNet(object):
         weight = 0
 
         for index in range(self.num_layers, 0, -1):
-            weight = (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
+            weight += (self.params[f'W{index}'] * self.params[f'W{index}']).sum()
             do = self.dropout_param if self.use_dropout else None
             if index == self.num_layers:
                 dz, grads[f'W{index}'], grads[f'b{index}'] = affine_backward(dz, cache_list[index -1])
